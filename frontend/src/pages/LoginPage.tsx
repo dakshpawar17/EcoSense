@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 const features = [
   { icon: TrendingDown, label: "AI Carbon Insights", desc: "Real-time predictive footprint analysis" },
   { icon: TreePine, label: "Environmental Impact", desc: "Trees, miles & gallons saved metrics" },
-  { icon: Sparkles, label: "AI Sustainability Coach", desc: "Personalized Claude AI recommendations" },
+  { icon: Sparkles, label: "AI Sustainability Coach", desc: "Personalized Groq AI recommendations" },
   { icon: Cpu, label: "7-Day Forecasting", desc: "Exponential smoothing trend prediction" },
 ];
 

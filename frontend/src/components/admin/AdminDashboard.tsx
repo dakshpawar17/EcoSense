@@ -61,7 +61,7 @@ export const AdminDashboard: React.FC = () => {
             <Cpu className="w-4 h-4 text-sky-400" />
           </div>
           <div className="text-2xl font-extrabold text-white">{data.aiServiceLatencyMs} ms</div>
-          <div className="text-xs text-slate-400 mt-1">Anthropic API response time</div>
+          <div className="text-xs text-slate-400 mt-1">Groq API response time</div>
         </Card>
 
         <Card className="p-4">

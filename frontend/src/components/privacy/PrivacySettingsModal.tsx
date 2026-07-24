@@ -47,7 +47,7 @@ export const PrivacySettingsModal: React.FC<PrivacySettingsModalProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-semibold text-slate-200">AI Personalization Memory</div>
-              <div className="text-xs text-slate-400">Allow Claude AI to memorize travel patterns</div>
+              <div className="text-xs text-slate-400">Allow Groq AI to memorize travel patterns</div>
             </div>
             <input type="checkbox" defaultChecked className="w-4 h-4 accent-emerald-500 rounded" />
           </div>

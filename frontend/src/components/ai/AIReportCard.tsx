@@ -33,7 +33,7 @@ export const AIReportCard: React.FC<AIReportCardProps> = ({
               AI Sustainability Coach Report
             </h2>
             <p className="text-xs text-slate-400">
-              Personalized carbon analysis powered by Anthropic Claude AI
+              Personalized carbon analysis powered by Groq AI
             </p>
           </div>
         </div>
@@ -68,7 +68,7 @@ export const AIReportCard: React.FC<AIReportCardProps> = ({
           <ShieldCheck className="w-12 h-12 text-emerald-400/80 mx-auto" />
           <h3 className="text-base font-semibold text-slate-200">No AI Analysis Generated Yet</h3>
           <p className="text-xs text-slate-400 max-w-md mx-auto">
-            Click the "Generate Eco Report" button above to run Claude AI's deep analysis on your logged footprint.
+            Click the "Generate Eco Report" button above to run Groq AI's deep analysis on your logged footprint.
           </p>
         </div>
       )}

@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 
 export interface Recommendation {
   title: string;
@@ -27,11 +27,15 @@ export interface FootprintSummary {
 }
 
 export async function generateClaudeReport(summary: FootprintSummary): Promise<EcoReportResponse> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  return generateGroqReport(summary);
+}
+
+export async function generateGroqReport(summary: FootprintSummary): Promise<EcoReportResponse> {
+  const apiKey = process.env.GROQ_API_KEY;
 
   if (apiKey && apiKey.trim().length > 5) {
     try {
-      const anthropic = new Anthropic({ apiKey });
+      const groq = new Groq({ apiKey });
       const promptText = `
 You are EcoSense.
 You are a friendly sustainability coach.
@@ -44,7 +48,7 @@ Analyze this user's carbon footprint:
 - EcoScore: ${summary.ecoScore} (${summary.grade})
 - National Average Comparison: ${summary.averageComparison}
 
-Return ONLY valid JSON. No markdown code blocks, no explanation.
+Return ONLY valid JSON.
 
 {
   "summary": "Brief 2-sentence breakdown of user carbon impact",
@@ -77,13 +81,17 @@ Return ONLY valid JSON. No markdown code blocks, no explanation.
 }
       `.trim();
 
-      const response = await anthropic.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: promptText }],
+      const response = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: "You are EcoSense, an expert AI sustainability coach. You must output valid JSON ONLY." },
+          { role: "user", content: promptText }
+        ],
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.3,
+        response_format: { type: "json_object" }
       });
 
-      const rawText = response.content[0]?.type === "text" ? response.content[0].text : "";
+      const rawText = response.choices[0]?.message?.content || "";
       const cleanedJson = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
 
       const parsed: EcoReportResponse = JSON.parse(cleanedJson);
@@ -96,7 +104,7 @@ Return ONLY valid JSON. No markdown code blocks, no explanation.
         return parsed;
       }
     } catch (error) {
-      console.warn("Claude API call failed or returned non-JSON, using intelligent fallback engine:", error);
+      console.warn("Groq API call failed or returned non-JSON, using intelligent fallback engine:", error);
     }
   }
 

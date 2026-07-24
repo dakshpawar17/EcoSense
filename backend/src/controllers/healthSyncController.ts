@@ -108,3 +108,80 @@ export const saveGPSTrip = async (req: Request, res: Response) => {
     });
   }
 };
+
+// POST /api/sync/weekly - Process 7-day weekly telemetry sync from Apple Health / Google Health Connect
+export const syncWeeklyHealthAnalysis = async (req: Request, res: Response) => {
+  try {
+    const { provider, weeklyData } = req.body;
+
+    const daysArray = Array.isArray(weeklyData) ? weeklyData : [];
+
+    let totalWeeklySteps = 0;
+    let totalActiveKm = 0;
+    let bestDay = { day: "N/A", km: 0 };
+    const processedDays = [];
+
+    for (const item of daysArray) {
+      const steps = Number(item.steps) || 0;
+      let walkKm = Number(item.walkKm) || 0;
+      const bikeKm = Number(item.bikeKm) || 0;
+
+      // Fallback: 1 step ≈ 0.00075 km
+      if (walkKm === 0 && steps > 0) {
+        walkKm = Number((steps * 0.00075).toFixed(2));
+      }
+
+      const dayTotalKm = Number((walkKm + bikeKm).toFixed(2));
+      totalWeeklySteps += steps;
+      totalActiveKm += dayTotalKm;
+
+      if (dayTotalKm > bestDay.km) {
+        bestDay = { day: item.day || item.date || "Day", km: dayTotalKm };
+      }
+
+      if (dayTotalKm > 0) {
+        const created = await prisma.entry.create({
+          data: {
+            transportMode: bikeKm > walkKm ? "bike" : "walk",
+            transportKm: dayTotalKm,
+            co2Transport: 0,
+            co2Total: 0,
+            ecoScore: 98,
+          },
+        });
+        processedDays.push({
+          day: item.day || "Day",
+          steps,
+          activeKm: dayTotalKm,
+          co2OffsetKg: Number((dayTotalKm * 0.21).toFixed(2)),
+          entryId: created.id,
+        });
+      }
+    }
+
+    totalActiveKm = Number(totalActiveKm.toFixed(2));
+    const totalCo2SavedKg = Number((totalActiveKm * 0.21).toFixed(2));
+    const averageDailySteps = Math.round(daysArray.length > 0 ? totalWeeklySteps / daysArray.length : 0);
+
+    return res.status(200).json({
+      success: true,
+      message: `Weekly health analysis complete for ${daysArray.length} days from ${provider || "Health App"}`,
+      analysis: {
+        totalWeeklySteps,
+        averageDailySteps,
+        totalActiveKm,
+        totalCo2SavedKg,
+        equivalentTreesPlanted: Number((totalCo2SavedKg / 0.06).toFixed(1)),
+        bestDay: `${bestDay.day} (${bestDay.km} km)`,
+        sustainabilityRating: totalCo2SavedKg > 15 ? "S-Tier Eco Leader" : totalCo2SavedKg > 8 ? "A-Tier Active Walker" : "B-Tier Sustainability Contributor",
+        processedDays,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to process weekly health telemetry analysis",
+      error: error.message,
+    });
+  }
+};

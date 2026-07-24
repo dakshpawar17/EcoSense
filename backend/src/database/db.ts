@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
-import { execSync } from "child_process";
 import fs from "fs";
+import path from "path";
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
@@ -13,13 +13,29 @@ function getVercelDatabaseUrl(): string {
 
     if (!fs.existsSync(tmpDbPath)) {
       try {
-        console.log("⚡ Initializing SQLite database at /tmp/ecosense.db for Vercel...");
-        execSync("npx prisma db push --accept-data-loss", {
-          env: { ...process.env, DATABASE_URL: dbUrl },
-          timeout: 10000,
-        });
+        const candidatePaths = [
+          path.join(process.cwd(), "prisma", "ecosense.db"),
+          path.join(process.cwd(), "backend", "prisma", "ecosense.db"),
+          path.join(process.cwd(), "ecosense.db"),
+          "./prisma/ecosense.db",
+          "./ecosense.db",
+        ];
+
+        let foundTemplate = false;
+        for (const cand of candidatePaths) {
+          if (fs.existsSync(cand)) {
+            fs.copyFileSync(cand, tmpDbPath);
+            console.log(`⚡ Successfully copied DB template from ${cand} to /tmp/ecosense.db`);
+            foundTemplate = true;
+            break;
+          }
+        }
+
+        if (!foundTemplate) {
+          fs.writeFileSync(tmpDbPath, "");
+        }
       } catch (err) {
-        console.warn("Failed to push Prisma schema to /tmp/ecosense.db:", err);
+        console.warn("Vercel DB template copy warning:", err);
       }
     }
     return dbUrl;

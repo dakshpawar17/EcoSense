@@ -7,11 +7,17 @@ export const syncHealthData = async (req: Request, res: Response) => {
   try {
     const { provider, stepCount, walkingDistanceKm, cyclingDistanceKm } = req.body;
 
-    const totalWalkKm = Number(walkingDistanceKm) || 0;
-    const totalBikeKm = Number(cyclingDistanceKm) || 0;
+    let totalWalkKm = Number(walkingDistanceKm) || 0;
+    let totalBikeKm = Number(cyclingDistanceKm) || 0;
+    const steps = Number(stepCount) || 0;
 
-    const savedKm = totalWalkKm + totalBikeKm;
-    // Car baseline emission offset: 0.21 kg CO2/km
+    // Auto-convert step count to distance if walkingDistanceKm was omitted (1 step ≈ 0.00075 km)
+    if (totalWalkKm === 0 && steps > 0) {
+      totalWalkKm = Number((steps * 0.00075).toFixed(2));
+    }
+
+    const savedKm = Number((totalWalkKm + totalBikeKm).toFixed(2));
+    // Car baseline emission offset: 0.21 kg CO2/km saved
     const co2OffsetKg = Number((savedKm * 0.21).toFixed(2));
 
     let createdEntries = [];
@@ -42,10 +48,13 @@ export const syncHealthData = async (req: Request, res: Response) => {
       createdEntries.push(bikeEntry);
     }
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
-      message: `Successfully synced ${savedKm.toFixed(1)} km from ${provider || "Health App"}`,
+      message: savedKm > 0 
+        ? `Successfully synced ${savedKm} km from ${provider || "Health App"}`
+        : "Health app connected (0 km activity recorded)",
       data: {
+        stepCount: steps,
         syncedDistanceKm: savedKm,
         co2OffsetKg,
         entriesCount: createdEntries.length,

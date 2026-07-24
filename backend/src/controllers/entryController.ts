@@ -10,6 +10,8 @@ export async function createEntry(req: Request, res: Response, next: NextFunctio
 
     const newEntry = await prisma.entry.create({
       data: {
+        userEmail: req.body.userEmail || null,
+        userId: req.body.userId || null,
         transportMode: validatedData.transportMode,
         transportKm: validatedData.transportKm,
         energyKwh: validatedData.energyKwh,

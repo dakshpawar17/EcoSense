@@ -12,7 +12,18 @@ export const api = axios.create({
 
 export const entryService = {
   async createEntry(data: ActivityFormInput): Promise<{ success: boolean; data: Entry }> {
-    const response = await api.post("/entries", data);
+    const storedUser = localStorage.getItem("ecosense_user");
+    let userEmail: string | undefined;
+    let userId: string | undefined;
+    if (storedUser) {
+      try {
+        const u = JSON.parse(storedUser);
+        userEmail = u.email;
+        userId = u.id;
+      } catch {}
+    }
+
+    const response = await api.post("/entries", { ...data, userEmail, userId });
     return response.data;
   },
 

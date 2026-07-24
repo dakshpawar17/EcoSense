@@ -99,7 +99,7 @@ Return ONLY valid JSON.
         parsed &&
         parsed.summary &&
         Array.isArray(parsed.recommendations) &&
-        parsed.recommendations.length === 4
+        parsed.recommendations.length > 0
       ) {
         return parsed;
       }

@@ -63,7 +63,10 @@ function AppInner() {
   };
 
   useEffect(() => {
-    if (user) fetchSummary();
+    if (user) {
+      fetchSummary();
+      handleGenerateReport();
+    }
   }, [user]);
 
   // Autonomous Background Telemetry Sync Poller

@@ -8,18 +8,18 @@ export async function getAdminAnalytics(_req: Request, res: Response, next: Next
     });
 
     const totalEntries = allEntries.length;
-    const totalCo2Logged = allEntries.reduce((acc, curr) => acc + curr.co2Total, 0);
+    const totalCo2Logged = allEntries.reduce((acc: number, curr: any) => acc + curr.co2Total, 0);
 
     // Benchmark comparison (12.5 kg * totalEntries)
     const benchmarkTotal = totalEntries * 12.5;
     const totalCo2Saved = Math.max(0, parseFloat((benchmarkTotal - totalCo2Logged).toFixed(2)));
 
     const averageEcoScore = totalEntries > 0
-      ? Math.round(allEntries.reduce((acc, curr) => acc + curr.ecoScore, 0) / totalEntries)
+      ? Math.round(allEntries.reduce((acc: number, curr: any) => acc + curr.ecoScore, 0) / totalEntries)
       : 80;
 
     const breakdown = allEntries.reduce(
-      (acc, curr) => {
+      (acc: any, curr: any) => {
         acc.transport += curr.co2Transport;
         acc.energy += curr.co2Energy;
         acc.food += curr.co2Food;

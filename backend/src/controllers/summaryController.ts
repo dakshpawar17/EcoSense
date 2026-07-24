@@ -46,13 +46,13 @@ export async function getSummary(req: Request, res: Response, next: NextFunction
     const todayEcoScore = latestEntry.ecoScore;
 
     const recentEntries = allEntries.slice(0, 7);
-    const sumTotal = recentEntries.reduce((acc, curr) => acc + curr.co2Total, 0);
+    const sumTotal = recentEntries.reduce((acc: number, curr: any) => acc + curr.co2Total, 0);
     const weeklyAverage = parseFloat((sumTotal / recentEntries.length).toFixed(2));
 
     let best = allEntries[0];
     let worst = allEntries[0];
 
-    allEntries.forEach((entry) => {
+    allEntries.forEach((entry: any) => {
       if (entry.co2Total < best.co2Total) best = entry;
       if (entry.co2Total > worst.co2Total) worst = entry;
     });
@@ -66,7 +66,7 @@ export async function getSummary(req: Request, res: Response, next: NextFunction
     const currentStreak = Math.min(allEntries.length, 14);
 
     const breakdown = allEntries.reduce(
-      (acc, curr) => {
+      (acc: any, curr: any) => {
         acc.co2Transport += curr.co2Transport;
         acc.co2Energy += curr.co2Energy;
         acc.co2Food += curr.co2Food;
@@ -80,7 +80,7 @@ export async function getSummary(req: Request, res: Response, next: NextFunction
     const weeklyTrend = recentEntries
       .slice()
       .reverse()
-      .map((e) => ({
+      .map((e: any) => ({
         id: e.id,
         date: new Date(e.createdAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
         co2Total: e.co2Total,
@@ -95,7 +95,7 @@ export async function getSummary(req: Request, res: Response, next: NextFunction
     const equivalents = calculateEnvironmentalEquivalents(todayTotal);
 
     // Predictive 7-day forecast
-    const pastTotals = allEntries.map((e) => e.co2Total);
+    const pastTotals = allEntries.map((e: any) => e.co2Total);
     const forecast = generate7DayForecast(pastTotals);
 
     // Monthly Carbon Budget

@@ -12,6 +12,7 @@
     "@hookform/resolvers": "^3.10.0",
     "axios": "^1.7.9",
     "clsx": "^2.1.1",
+    "firebase": "^12.16.0",
     "framer-motion": "^12.4.7",
     "lucide-react": "^0.475.0",
     "react": "^19.0.0",

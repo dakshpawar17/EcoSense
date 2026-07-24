@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { signInWithPopup, signOut as firebaseSignOut } from "firebase/auth";
+import { auth, googleProvider, appleProvider } from "../config/firebase";
 import { api } from "../services/api";
 
 export interface AuthUser {
@@ -113,16 +115,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signInWithGoogle = async () => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    await syncAndPersistUser(DEMO_USERS.google);
-    setIsLoading(false);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const fbUser = result.user;
+      const baseUser: AuthUser = {
+        id: fbUser.uid,
+        name: fbUser.displayName || "EcoSense User",
+        email: fbUser.email || "user@ecosense.ai",
+        avatar: fbUser.photoURL || DEMO_USERS.google.avatar,
+        provider: "google",
+        role: "user",
+      };
+      await syncAndPersistUser(baseUser);
+    } catch (err: any) {
+      console.warn("Firebase Google login popup note/fallback:", err.message);
+      await syncAndPersistUser(DEMO_USERS.google);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const signInWithApple = async () => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    await syncAndPersistUser(DEMO_USERS.apple);
-    setIsLoading(false);
+    try {
+      const result = await signInWithPopup(auth, appleProvider);
+      const fbUser = result.user;
+      const baseUser: AuthUser = {
+        id: fbUser.uid,
+        name: fbUser.displayName || "Apple EcoSense User",
+        email: fbUser.email || "apple@ecosense.ai",
+        avatar: fbUser.photoURL || DEMO_USERS.apple.avatar,
+        provider: "apple",
+        role: "user",
+      };
+      await syncAndPersistUser(baseUser);
+    } catch (err: any) {
+      console.warn("Firebase Apple login popup note/fallback:", err.message);
+      await syncAndPersistUser(DEMO_USERS.apple);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const signInDemo = async () => {
@@ -138,6 +170,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signOut = () => {
+    try {
+      firebaseSignOut(auth);
+    } catch {}
     localStorage.removeItem("ecosense_user");
     setUser(null);
   };

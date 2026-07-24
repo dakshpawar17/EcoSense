@@ -9,6 +9,7 @@ interface NavbarProps {
   onOpenLogModal: () => void;
   onOpenReportModal: () => void;
   onOpenPrivacyModal: () => void;
+  onOpenGpsHealthModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -17,6 +18,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenLogModal,
   onOpenReportModal,
   onOpenPrivacyModal,
+  onOpenGpsHealthModal,
 }) => {
   const { user, signOut } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
@@ -67,6 +69,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
+          {onOpenGpsHealthModal && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenGpsHealthModal}
+              className="hidden md:inline-flex border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+            >
+              📱 GPS & Health Sync
+            </Button>
+          )}
+
           <button
             onClick={onOpenPrivacyModal}
             className="hidden sm:flex p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition"

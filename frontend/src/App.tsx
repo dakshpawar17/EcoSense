@@ -10,6 +10,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { Modal } from "./components/ui/Modal";
 import { ActivityLoggerForm } from "./components/forms/ActivityLoggerForm";
 import { PrivacySettingsModal } from "./components/privacy/PrivacySettingsModal";
+import { GPSHealthTrackerModal } from "./components/sensors/GPSHealthTrackerModal";
 import { ToastNotification } from "./components/ui/ToastNotification";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { summaryService, reportService, entryService } from "./services/api";
@@ -23,6 +24,7 @@ function AppInner() {
   const [isReportLoading, setIsReportLoading] = useState(false);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isGpsHealthModalOpen, setIsGpsHealthModalOpen] = useState(false);
   const [isLogSubmitting, setIsLogSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string | null; type: "success" | "error" }>({
     message: null,
@@ -108,6 +110,7 @@ function AppInner() {
         onOpenLogModal={() => setIsLogModalOpen(true)}
         onOpenReportModal={() => handleGenerateReport()}
         onOpenPrivacyModal={() => setIsPrivacyModalOpen(true)}
+        onOpenGpsHealthModal={() => setIsGpsHealthModalOpen(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -146,6 +149,12 @@ function AppInner() {
       <Modal isOpen={isLogModalOpen} onClose={() => setIsLogModalOpen(false)} title="Log Today's Lifestyle Activity" maxWidth="xl">
         <ActivityLoggerForm onSubmit={handleCreateEntry} isLoading={isLogSubmitting} />
       </Modal>
+
+      <GPSHealthTrackerModal
+        isOpen={isGpsHealthModalOpen}
+        onClose={() => setIsGpsHealthModalOpen(false)}
+        onSuccess={fetchSummary}
+      />
 
       <PrivacySettingsModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} showToast={showToast} />
 

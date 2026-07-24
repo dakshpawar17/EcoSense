@@ -16,6 +16,8 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { summaryService, reportService, entryService } from "./services/api";
 import { ActivityFormInput, SummaryStats, AIReport } from "./types";
 
+import { nativeHealthBridge } from "./utils/nativeHealthBridge";
+
 function AppInner() {
   const { user, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<"dashboard" | "history" | "goals" | "admin">("dashboard");
@@ -62,6 +64,23 @@ function AppInner() {
 
   useEffect(() => {
     if (user) fetchSummary();
+  }, [user]);
+
+  // Autonomous Background Telemetry Sync Poller
+  useEffect(() => {
+    if (!user) return;
+
+    const runAutoSync = async () => {
+      if (!nativeHealthBridge.isAutoTrackingActive()) return;
+      const res = await nativeHealthBridge.collectAndSyncTelemetrySilently();
+      if (res.success && res.message) {
+        await fetchSummary();
+      }
+    };
+
+    runAutoSync();
+    const intervalId = setInterval(runAutoSync, 30000);
+    return () => clearInterval(intervalId);
   }, [user]);
 
   const handleCreateEntry = async (data: ActivityFormInput) => {

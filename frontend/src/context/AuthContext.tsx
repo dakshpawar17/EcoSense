@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { api } from "../services/api";
 
 export interface AuthUser {
   id: string;
@@ -6,6 +7,7 @@ export interface AuthUser {
   email: string;
   avatar: string;
   provider: "google" | "apple" | "demo";
+  role: "admin" | "user";
 }
 
 interface AuthContextType {
@@ -13,7 +15,8 @@ interface AuthContextType {
   isLoading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
-  signInDemo: () => void;
+  signInDemo: () => Promise<void>;
+  signInAdminDemo: () => Promise<void>;
   signOut: () => void;
 }
 
@@ -32,6 +35,7 @@ const DEMO_USERS = {
     email: "alex.morgan@gmail.com",
     avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=AlexMorgan&backgroundColor=b6e3f4",
     provider: "google" as const,
+    role: "user" as const,
   },
   apple: {
     id: "apple-user-001",
@@ -39,6 +43,7 @@ const DEMO_USERS = {
     email: "jamiechen@icloud.com",
     avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=JamieChen&backgroundColor=c0aede",
     provider: "apple" as const,
+    role: "user" as const,
   },
   demo: {
     id: "demo-user-001",
@@ -46,6 +51,15 @@ const DEMO_USERS = {
     email: "demo@ecosense.ai",
     avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=EcoDemo&backgroundColor=d1f4cc",
     provider: "demo" as const,
+    role: "user" as const,
+  },
+  admin: {
+    id: "admin-user-001",
+    name: "System Admin",
+    email: "admin@ecosense.ai",
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=EcoAdmin&backgroundColor=ffd5dc",
+    provider: "demo" as const,
+    role: "admin" as const,
   },
 };
 
@@ -58,34 +72,69 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const stored = localStorage.getItem("ecosense_user");
     if (stored) {
       try {
-        setUser(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setUser(parsed);
       } catch {}
     }
     setIsLoading(false);
   }, []);
 
-  const persist = (u: AuthUser) => {
-    localStorage.setItem("ecosense_user", JSON.stringify(u));
-    setUser(u);
+  const syncAndPersistUser = async (baseUser: AuthUser): Promise<AuthUser> => {
+    try {
+      const response = await api.post("/auth/login", {
+        email: baseUser.email,
+        name: baseUser.name,
+        avatar: baseUser.avatar,
+        provider: baseUser.provider,
+        role: baseUser.role,
+      });
+
+      if (response.data.success && response.data.user) {
+        const syncedUser: AuthUser = {
+          id: response.data.user.id || baseUser.id,
+          name: response.data.user.name || baseUser.name,
+          email: response.data.user.email || baseUser.email,
+          avatar: response.data.user.avatar || baseUser.avatar,
+          provider: (response.data.user.provider as any) || baseUser.provider,
+          role: (response.data.user.role as any) || baseUser.role,
+        };
+        localStorage.setItem("ecosense_user", JSON.stringify(syncedUser));
+        setUser(syncedUser);
+        return syncedUser;
+      }
+    } catch (err) {
+      console.warn("Backend user sync offline, saving locally:", err);
+    }
+
+    localStorage.setItem("ecosense_user", JSON.stringify(baseUser));
+    setUser(baseUser);
+    return baseUser;
   };
 
   const signInWithGoogle = async () => {
     setIsLoading(true);
-    // Simulate OAuth redirect latency
-    await new Promise((r) => setTimeout(r, 1200));
-    persist(DEMO_USERS.google);
+    await new Promise((r) => setTimeout(r, 800));
+    await syncAndPersistUser(DEMO_USERS.google);
     setIsLoading(false);
   };
 
   const signInWithApple = async () => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    persist(DEMO_USERS.apple);
+    await new Promise((r) => setTimeout(r, 800));
+    await syncAndPersistUser(DEMO_USERS.apple);
     setIsLoading(false);
   };
 
-  const signInDemo = () => {
-    persist(DEMO_USERS.demo);
+  const signInDemo = async () => {
+    setIsLoading(true);
+    await syncAndPersistUser(DEMO_USERS.demo);
+    setIsLoading(false);
+  };
+
+  const signInAdminDemo = async () => {
+    setIsLoading(true);
+    await syncAndPersistUser(DEMO_USERS.admin);
+    setIsLoading(false);
   };
 
   const signOut = () => {
@@ -94,7 +143,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signInWithGoogle, signInWithApple, signInDemo, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        signInWithGoogle,
+        signInWithApple,
+        signInDemo,
+        signInAdminDemo,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

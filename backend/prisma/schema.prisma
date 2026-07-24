@@ -57,3 +57,16 @@ model TelemetrySyncLog {
 
   @@index([createdAt])
 }
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  avatar    String?
+  provider  String   @default("demo")
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}

@@ -11,7 +11,7 @@ const features = [
 ];
 
 export const LoginPage: React.FC = () => {
-  const { signInWithGoogle, signInWithApple, signInDemo, isLoading } = useAuth();
+  const { signInWithGoogle, signInWithApple, signInDemo, signInAdminDemo, isLoading } = useAuth();
   const [loadingProvider, setLoadingProvider] = useState<"google" | "apple" | null>(null);
 
   const handleGoogle = async () => {
@@ -216,15 +216,25 @@ export const LoginPage: React.FC = () => {
               <div className="h-px flex-1 bg-slate-800" />
             </div>
 
-            {/* Demo Access */}
-            <button
-              onClick={signInDemo}
-              className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-emerald-500/30 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/10 transition-all duration-200 group"
-            >
-              <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              Explore with Demo Account
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </button>
+            {/* Demo Access Options */}
+            <div className="space-y-2">
+              <button
+                onClick={signInDemo}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-emerald-500/30 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/10 transition-all duration-200 group"
+              >
+                <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                Explore as Regular User
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+
+              <button
+                onClick={signInAdminDemo}
+                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl border border-slate-700 bg-slate-950/60 text-slate-300 text-xs font-semibold hover:bg-slate-800 transition-all duration-200"
+              >
+                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                Sign In as System Admin
+              </button>
+            </div>
 
             {/* Privacy Note */}
             <div className="mt-6 flex items-start gap-2 p-3 rounded-xl bg-slate-950/60 border border-slate-800/60">

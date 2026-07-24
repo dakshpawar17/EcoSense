@@ -13,6 +13,8 @@ import { errorHandler } from "./middleware/errorHandler";
 
 dotenv.config();
 
+import authRoutes from "./routes/authRoutes";
+
 export const app = express();
 const PORT = process.env.PORT || 5001;
 
@@ -28,6 +30,7 @@ app.use(
 app.use(express.json());
 
 // API Routes
+app.use("/api/auth", authRoutes);
 app.use("/api/entries", entryRoutes);
 app.use("/api/report", reportRoutes);
 app.use("/api/summary", summaryRoutes);

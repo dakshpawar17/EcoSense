@@ -50,7 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
             { id: "history", label: "History", icon: HistoryIcon },
             { id: "goals", label: "Goals", icon: Award },
-            { id: "admin", label: "Admin", icon: ShieldAlert },
+            ...(user?.role === "admin" ? [{ id: "admin", label: "Admin Panel", icon: ShieldAlert }] : []),
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}

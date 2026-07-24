@@ -168,3 +168,174 @@ export function generateFallbackReport(summary: FootprintSummary): EcoReportResp
     recommendations,
   };
 }
+
+export interface TransportPredictionResult {
+  predictedMode: "walk" | "bike" | "bus" | "train" | "car" | "motorcycle";
+  confidenceScore: number;
+  reasoning: string;
+  isAmbiguous: boolean;
+}
+
+export async function predictTransportModeWithAI(
+  speedKmH: number,
+  distanceKm: number,
+  userCorrections: { predictedMode: string; actualMode: string }[] = []
+): Promise<TransportPredictionResult> {
+  const apiKey = process.env.GROQ_API_KEY;
+
+  // Rule-based fast heuristics
+  if (speedKmH < 7 && distanceKm < 15) {
+    return { predictedMode: "walk", confidenceScore: 0.98, reasoning: "Pace < 7 km/h matches active walking/running stride.", isAmbiguous: false };
+  }
+  if (speedKmH >= 7 && speedKmH <= 22 && distanceKm < 30) {
+    return { predictedMode: "bike", confidenceScore: 0.92, reasoning: "Velocity 7-22 km/h matches urban cycling cadence.", isAmbiguous: false };
+  }
+
+  // Use Groq LLM for ambiguous speeds (e.g. 18-35 km/h city bus vs e-bike traffic, high-speed rail vs car)
+  if (apiKey && apiKey.trim().length > 5) {
+    try {
+      const groq = new Groq({ apiKey });
+      const promptText = `
+You are an AI Sensor & Mobility Classification Expert.
+Analyze this movement session:
+- Average Speed: ${speedKmH} km/h
+- Trip Distance: ${distanceKm} km
+- User Past Correction History: ${JSON.stringify(userCorrections)}
+
+Classify the transport mode into ONE of: ["walk", "bike", "bus", "train", "car", "motorcycle"].
+Return ONLY valid JSON matching this schema:
+{
+  "predictedMode": "bus",
+  "confidenceScore": 0.85,
+  "reasoning": "1-sentence explanation considering velocity, distance, and past user corrections"
+}
+`;
+      const completion = await groq.chat.completions.create({
+        messages: [{ role: "user", content: promptText }],
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.1,
+      });
+
+      const responseText = completion.choices[0]?.message?.content || "";
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.predictedMode && typeof parsed.confidenceScore === "number") {
+          return {
+            predictedMode: parsed.predictedMode.toLowerCase(),
+            confidenceScore: Math.min(1.0, Math.max(0.1, parsed.confidenceScore)),
+            reasoning: parsed.reasoning || "AI model classification based on telemetry.",
+            isAmbiguous: parsed.confidenceScore < 0.85,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("Groq transport prediction fallback:", err);
+    }
+  }
+
+  // Heuristic Fallback
+  if (speedKmH > 70 || distanceKm > 50) {
+    return { predictedMode: "train", confidenceScore: 0.82, reasoning: "High speed / long distance corridor matches rail transit.", isAmbiguous: false };
+  } else if (speedKmH > 25 && speedKmH <= 70) {
+    return { predictedMode: "car", confidenceScore: 0.78, reasoning: "Urban motor speed range 25-70 km/h.", isAmbiguous: true };
+  }
+
+  return { predictedMode: "bus", confidenceScore: 0.75, reasoning: "City speed range 20-35 km/h with frequent stops.", isAmbiguous: true };
+}
+
+export interface MultiTimeframeSummaryResponse {
+  timeframe: "daily" | "weekly" | "monthly";
+  totalCo2Kg: number;
+  co2SavedVsCar: number;
+  topMode: string;
+  insights: string[];
+  forecastNextPeriodCo2Kg: number;
+  recommendations: Recommendation[];
+}
+
+export async function generateMultiTimeframeSummary(
+  timeframe: "daily" | "weekly" | "monthly",
+  entries: any[]
+): Promise<MultiTimeframeSummaryResponse> {
+  const totalCo2Kg = Number(entries.reduce((sum, e) => sum + (e.co2Total || 0), 0).toFixed(2));
+  const activeKm = entries.reduce((sum, e) => (e.transportMode === "walk" || e.transportMode === "bike" ? sum + (e.transportKm || 0) : sum), 0);
+  const co2SavedVsCar = Number((activeKm * 0.21).toFixed(2));
+
+  // Determine top transport mode
+  const modeCounts: Record<string, number> = {};
+  entries.forEach((e) => {
+    const m = e.transportMode || "car";
+    modeCounts[m] = (modeCounts[m] || 0) + (e.transportKm || 1);
+  });
+  const topMode = Object.keys(modeCounts).sort((a, b) => modeCounts[b] - modeCounts[a])[0] || "car";
+
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (apiKey && apiKey.trim().length > 5) {
+    try {
+      const groq = new Groq({ apiKey });
+      const promptText = `
+You are EcoSense AI. Generate a ${timeframe.toUpperCase()} Sustainability Summary.
+Data:
+- Total CO2: ${totalCo2Kg} kg
+- Active Offset Saved vs Car: ${co2SavedVsCar} kg
+- Top Transport Mode: ${topMode}
+- Entries Count: ${entries.length}
+
+Return ONLY JSON:
+{
+  "insights": [
+    "3 specific bullet insights about their ${timeframe} emissions and active transport progress"
+  ],
+  "forecastNextPeriodCo2Kg": ${Number((totalCo2Kg * 0.92).toFixed(1))},
+  "recommendations": [
+    { "title": "Recommendation Title", "description": "1-sentence tip", "impact_saved": 1.5 }
+  ]
+}
+`;
+      const completion = await groq.chat.completions.create({
+        messages: [{ role: "user", content: promptText }],
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.3,
+      });
+
+      const text = completion.choices[0]?.message?.content || "";
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(parsed.insights)) {
+          return {
+            timeframe,
+            totalCo2Kg,
+            co2SavedVsCar,
+            topMode,
+            insights: parsed.insights,
+            forecastNextPeriodCo2Kg: parsed.forecastNextPeriodCo2Kg || Number((totalCo2Kg * 0.9).toFixed(1)),
+            recommendations: parsed.recommendations || [],
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("Groq multi-timeframe summary fallback:", err);
+    }
+  }
+
+  // Intelligent Fallback
+  return {
+    timeframe,
+    totalCo2Kg,
+    co2SavedVsCar,
+    topMode,
+    insights: [
+      `Your total ${timeframe} emissions reached ${totalCo2Kg} kg CO₂.`,
+      `By choosing active travel, you offset ${co2SavedVsCar} kg CO₂ compared to driving.`,
+      `Your primary transport mode was ${topMode.toUpperCase()}.`,
+    ],
+    forecastNextPeriodCo2Kg: Number((totalCo2Kg * 0.88).toFixed(1)),
+    recommendations: [
+      { title: "Increase Active Micro-mobility", description: "Replacing short motor trips with walking or cycling reduces emissions to 0.", impact_saved: 2.1 },
+      { title: "Optimize Route Batching", description: "Consolidate multiple errands into single continuous loops.", impact_saved: 1.4 },
+    ],
+  };
+}

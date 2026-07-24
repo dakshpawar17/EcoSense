@@ -8,6 +8,7 @@ import summaryRoutes from "./routes/summaryRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import profileRoutes from "./routes/profileRoutes";
 import healthSyncRoutes from "./routes/healthSyncRoutes";
+import telemetryRoutes from "./routes/telemetryRoutes";
 import { errorHandler } from "./middleware/errorHandler";
 
 dotenv.config();
@@ -33,6 +34,7 @@ app.use("/api/summary", summaryRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/sync", healthSyncRoutes);
+app.use("/api/telemetry", telemetryRoutes);
 
 // Health check endpoint
 app.get("/api/health", (_req: Request, res: Response) => {

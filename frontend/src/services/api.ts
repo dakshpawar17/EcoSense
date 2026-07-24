@@ -76,3 +76,27 @@ export const profileService = {
     return response.data;
   },
 };
+
+export const telemetryService = {
+  async predictMode(speedKmH: number, distanceKm: number) {
+    const response = await api.post("/telemetry/predict-mode", { speedKmH, distanceKm });
+    return response.data;
+  },
+
+  async submitCorrection(payload: {
+    entryId?: string;
+    predictedMode: string;
+    actualMode: string;
+    speedKmH?: number;
+    distanceKm?: number;
+    reason?: string;
+  }) {
+    const response = await api.post("/telemetry/correct-mode", payload);
+    return response.data;
+  },
+
+  async getMultiTimeframeSummary(timeframe: "daily" | "weekly" | "monthly") {
+    const response = await api.get("/telemetry/summaries", { params: { timeframe } });
+    return response.data;
+  },
+};

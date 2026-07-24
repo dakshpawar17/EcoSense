@@ -22,6 +22,9 @@ import { EcoBadges } from "../components/achievements/EcoBadges";
 import { EnvironmentalEquivalentsCard } from "../components/dashboard/EnvironmentalEquivalentsCard";
 import { CarbonBudgetCard } from "../components/dashboard/CarbonBudgetCard";
 import { AIForecastCard } from "../components/dashboard/AIForecastCard";
+import { AutoTrackingToggleCard } from "../components/sensors/AutoTrackingToggleCard";
+import { MultiTimeframeReportCard } from "../components/ai/MultiTimeframeReportCard";
+import { GPSHealthTrackerModal } from "../components/sensors/GPSHealthTrackerModal";
 import { getGradeFromScore } from "../utils/calculationPreview";
 
 interface DashboardProps {
@@ -30,6 +33,7 @@ interface DashboardProps {
   isReportLoading: boolean;
   onGenerateReport: () => void;
   onOpenLogModal: () => void;
+  onRefreshData?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -38,7 +42,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
   isReportLoading,
   onGenerateReport,
   onOpenLogModal,
+  onRefreshData,
 }) => {
+  const [isSensorsModalOpen, setIsSensorsModalOpen] = React.useState(false);
+
   const currentDateFormatted = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -52,6 +59,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-8">
+      {/* Auto-Tracking Opt-In & Privacy Banner */}
+      <AutoTrackingToggleCard
+        onSyncNow={() => onRefreshData && onRefreshData()}
+        onOpenSensorsModal={() => setIsSensorsModalOpen(true)}
+      />
       {/* Top Banner / Hero Header */}
       <Card glow className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-900/90 to-emerald-950/40">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
@@ -180,6 +192,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
+      {/* Multi-Timeframe AI Report Section */}
+      <MultiTimeframeReportCard />
+
       {/* AI Coach Sustainability Section */}
       <AIReportCard
         report={report}
@@ -245,6 +260,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           />
         </div>
       </div>
+
+      {/* Sensor & Health Modal */}
+      <GPSHealthTrackerModal
+        isOpen={isSensorsModalOpen}
+        onClose={() => setIsSensorsModalOpen(false)}
+        onSuccess={() => onRefreshData && onRefreshData()}
+      />
     </div>
   );
 };

@@ -26,5 +26,34 @@ model Entry {
   co2Total         Float    @default(0.0)
   ecoScore         Int      @default(75)
 
+  // AI Auto-Tracking metadata
+  isAutoTracked    Boolean  @default(false)
+  confidenceScore  Float?
+
+  @@index([createdAt])
+}
+
+model UserCorrection {
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  predictedMode   String
+  actualMode      String
+  speedKmH        Float    @default(0.0)
+  distanceKm      Float    @default(0.0)
+  confidenceScore Float    @default(0.8)
+  reason          String?
+
+  @@index([createdAt])
+}
+
+model TelemetrySyncLog {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  provider      String   @default("Apple HealthKit")
+  stepCount     Int      @default(0)
+  distanceKm    Float    @default(0.0)
+  co2OffsetKg   Float    @default(0.0)
+  status        String   @default("SUCCESS")
+
   @@index([createdAt])
 }

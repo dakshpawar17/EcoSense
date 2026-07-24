@@ -49,3 +49,5 @@ if (process.env.NODE_ENV !== "test") {
     console.log(`🌱 EcoSense Backend running on http://localhost:${PORT}`);
   });
 }
+
+export default app;

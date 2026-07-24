@@ -29,11 +29,17 @@ export async function getAdminAnalytics(_req: Request, res: Response, next: Next
       { transport: 0, energy: 0, food: 0, shopping: 0 }
     );
 
+    let registeredUserCount = 0;
+    try {
+      registeredUserCount = await prisma.user.count();
+    } catch {}
+    const totalUsers = Math.max(registeredUserCount, 1);
+
     res.status(200).json({
       success: true,
       data: {
-        totalUsers: 142,
-        activeLoggers: Math.min(totalEntries + 12, 142),
+        totalUsers,
+        activeLoggers: Math.min(totalEntries + 1, totalUsers),
         totalEntries,
         totalCo2Logged: parseFloat(totalCo2Logged.toFixed(2)),
         totalCo2Saved,

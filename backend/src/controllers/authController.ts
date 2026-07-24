@@ -14,6 +14,8 @@ export const loginOrRegisterUser = async (req: Request, res: Response) => {
     const isAdminEmail = email.toLowerCase().includes("admin") || email.toLowerCase() === "alex.morgan@gmail.com";
     const assignedRole = isAdminEmail || requestedRole === "admin" ? "admin" : "user";
 
+    console.log(`🔑 [USER LOGIN] Name: ${name || "User"} | Email: ${email} | Provider: ${provider || "demo"} | Role: ${assignedRole.toUpperCase()}`);
+
     let dbUser = null;
     try {
       dbUser = await prisma.user.upsert({

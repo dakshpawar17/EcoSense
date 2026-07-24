@@ -156,6 +156,7 @@ export const GPSHealthTrackerModal: React.FC<GPSHealthTrackerModalProps> = ({
   const handleSyncHealthData = async () => {
     setIsSyncingHealth(true);
     setSyncSuccessMsg(null);
+    setGpsError(null);
     try {
       const res = await api.post("/sync/health", {
         provider: healthProvider,
@@ -169,7 +170,8 @@ export const GPSHealthTrackerModal: React.FC<GPSHealthTrackerModalProps> = ({
         onClose();
       }, 1200);
     } catch (err: any) {
-      setGpsError(err.response?.data?.message || "Failed to sync health telemetry");
+      const errorMsg = err.response?.data?.message || err.message || "Failed to sync health telemetry";
+      setGpsError(errorMsg);
     } finally {
       setIsSyncingHealth(false);
     }
@@ -189,7 +191,11 @@ export const GPSHealthTrackerModal: React.FC<GPSHealthTrackerModalProps> = ({
         {/* Navigation Tabs */}
         <div className="flex p-1 bg-slate-900/80 rounded-xl border border-slate-800">
           <button
-            onClick={() => setActiveTab("gps")}
+            onClick={() => {
+              setActiveTab("gps");
+              setGpsError(null);
+              setSyncSuccessMsg(null);
+            }}
             className={`flex-1 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
               activeTab === "gps"
                 ? "bg-emerald-500 text-slate-950 font-bold shadow"
@@ -200,7 +206,11 @@ export const GPSHealthTrackerModal: React.FC<GPSHealthTrackerModalProps> = ({
             Live GPS Trip Tracker
           </button>
           <button
-            onClick={() => setActiveTab("health")}
+            onClick={() => {
+              setActiveTab("health");
+              setGpsError(null);
+              setSyncSuccessMsg(null);
+            }}
             className={`flex-1 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
               activeTab === "health"
                 ? "bg-emerald-500 text-slate-950 font-bold shadow"

@@ -1,0 +1,31 @@
+name: EcoSense CI Workflow
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Monorepo Dependencies
+        run: npm run install:all
+
+      - name: Sync Prisma Schema
+        run: cd backend && npx prisma db push
+
+      - name: Run Backend Vitest Unit Tests
+        run: npm run test
+
+      - name: Build Backend & Frontend
+        run: npm run build

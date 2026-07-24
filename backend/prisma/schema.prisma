@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Entry {
+  id               String   @id @default(uuid())
+  clientUuid       String?  @unique
+  createdAt        DateTime @default(now())
+  transportMode    String   @default("car")
+  transportKm      Float    @default(0.0)
+  energyKwh        Float    @default(0.0)
+  energySource     String   @default("grid")
+  dietType         String   @default("mixed")
+  meals            Int      @default(3)
+  shoppingOrders   Int      @default(0)
+  shoppingCategory String   @default("general")
+  co2Transport     Float    @default(0.0)
+  co2Energy        Float    @default(0.0)
+  co2Food          Float    @default(0.0)
+  co2Shopping      Float    @default(0.0)
+  co2Total         Float    @default(0.0)
+  ecoScore         Int      @default(75)
+
+  @@index([createdAt])
+}

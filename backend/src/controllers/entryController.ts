@@ -7,11 +7,11 @@ export async function createEntry(req: Request, res: Response, next: NextFunctio
   try {
     const validatedData = createEntrySchema.parse(req.body);
     const calculations = calculateEmissions(validatedData);
+    const clientUuid = req.body.clientUuid || null;
 
     const newEntry = await prisma.entry.create({
       data: {
-        userEmail: req.body.userEmail || null,
-        userId: req.body.userId || null,
+        clientUuid,
         transportMode: validatedData.transportMode,
         transportKm: validatedData.transportKm,
         energyKwh: validatedData.energyKwh,
@@ -34,6 +34,84 @@ export async function createEntry(req: Request, res: Response, next: NextFunctio
       message: "Activity logged successfully",
       data: newEntry,
       calculation: calculations,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function syncEntries(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { entries } = req.body;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      res.status(200).json({ success: true, syncedCount: 0, data: [] });
+      return;
+    }
+
+    const syncedResults = [];
+
+    for (const item of entries) {
+      const validatedData = createEntrySchema.parse({
+        transportMode: item.transportMode,
+        transportKm: item.transportKm,
+        energyKwh: item.energyKwh,
+        energySource: item.energySource,
+        dietType: item.dietType,
+        meals: item.meals,
+        shoppingOrders: item.shoppingOrders,
+        shoppingCategory: item.shoppingCategory,
+      });
+
+      const calculations = calculateEmissions(validatedData);
+      const clientUuid = item.clientUuid || item.uuid || crypto.randomUUID();
+      const createdAt = item.queuedAt || item.createdAt ? new Date(item.queuedAt || item.createdAt) : new Date();
+
+      const entry = await prisma.entry.upsert({
+        where: { clientUuid },
+        update: {
+          transportMode: validatedData.transportMode,
+          transportKm: validatedData.transportKm,
+          energyKwh: validatedData.energyKwh,
+          energySource: validatedData.energySource,
+          dietType: validatedData.dietType,
+          meals: validatedData.meals,
+          shoppingOrders: validatedData.shoppingOrders,
+          shoppingCategory: validatedData.shoppingCategory,
+          co2Transport: calculations.co2Transport,
+          co2Energy: calculations.co2Energy,
+          co2Food: calculations.co2Food,
+          co2Shopping: calculations.co2Shopping,
+          co2Total: calculations.co2Total,
+          ecoScore: calculations.ecoScore,
+        },
+        create: {
+          clientUuid,
+          createdAt,
+          transportMode: validatedData.transportMode,
+          transportKm: validatedData.transportKm,
+          energyKwh: validatedData.energyKwh,
+          energySource: validatedData.energySource,
+          dietType: validatedData.dietType,
+          meals: validatedData.meals,
+          shoppingOrders: validatedData.shoppingOrders,
+          shoppingCategory: validatedData.shoppingCategory,
+          co2Transport: calculations.co2Transport,
+          co2Energy: calculations.co2Energy,
+          co2Food: calculations.co2Food,
+          co2Shopping: calculations.co2Shopping,
+          co2Total: calculations.co2Total,
+          ecoScore: calculations.ecoScore,
+        },
+      });
+
+      syncedResults.push(entry);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully synchronized ${syncedResults.length} offline activities`,
+      syncedCount: syncedResults.length,
+      data: syncedResults,
     });
   } catch (error) {
     next(error);

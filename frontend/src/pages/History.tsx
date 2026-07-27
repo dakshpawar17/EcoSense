@@ -10,6 +10,9 @@ import {
   Zap,
   Utensils,
   ShoppingBag,
+  Calendar,
+  Clock,
+  Globe,
 } from "lucide-react";
 import { Entry } from "../types";
 import { entryService } from "../services/api";
@@ -17,6 +20,7 @@ import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
 import { Skeleton } from "../components/ui/Skeleton";
+import { groupEntriesByDate, formatActivityTime } from "../utils/dateTime";
 
 interface HistoryProps {
   onRefreshSummary: () => void;
@@ -37,7 +41,7 @@ export const History: React.FC<HistoryProps> = ({ onRefreshSummary, showToast })
     try {
       const res = await entryService.getEntries({
         page,
-        limit: 8,
+        limit: 12,
         search,
         transportMode: transportFilter,
         sortBy: "createdAt",
@@ -76,6 +80,8 @@ export const History: React.FC<HistoryProps> = ({ onRefreshSummary, showToast })
     const headers = [
       "ID",
       "Date",
+      "Time",
+      "Timezone",
       "Transport Mode",
       "Transport (km)",
       "Energy (kWh)",
@@ -89,9 +95,13 @@ export const History: React.FC<HistoryProps> = ({ onRefreshSummary, showToast })
       "EcoScore",
     ];
 
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     const csvRows = entries.map((e) => [
       e.id,
-      new Date(e.createdAt).toISOString(),
+      new Date(e.createdAt).toISOString().split("T")[0],
+      formatActivityTime(e.createdAt),
+      tz,
       e.transportMode,
       e.transportKm,
       e.energyKwh,
@@ -120,14 +130,19 @@ export const History: React.FC<HistoryProps> = ({ onRefreshSummary, showToast })
     showToast("CSV history exported successfully", "success");
   };
 
+  const groupedEntries = groupEntriesByDate(entries);
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   return (
     <div className="space-y-6">
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Activity History Logs</h1>
-          <p className="text-xs text-slate-400">
-            Search, filter, and export past carbon footprint records ({totalCount} total entries)
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Daily Activity Logs</h1>
+          <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+            <Globe className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Timezone: <strong className="text-slate-300">{userTimezone}</strong></span>
+            <span>• {totalCount} total activities logged</span>
           </p>
         </div>
 
@@ -180,98 +195,91 @@ export const History: React.FC<HistoryProps> = ({ onRefreshSummary, showToast })
         </div>
       </Card>
 
-      {/* Table Container */}
-      <Card className="p-0 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-900/80 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800">
-              <tr>
-                <th className="px-5 py-3.5">Date & Time</th>
-                <th className="px-5 py-3.5">Transport</th>
-                <th className="px-5 py-3.5">Energy</th>
-                <th className="px-5 py-3.5">Food</th>
-                <th className="px-5 py-3.5">Shopping</th>
-                <th className="px-5 py-3.5">Total CO₂</th>
-                <th className="px-5 py-3.5">EcoScore</th>
-                <th className="px-5 py-3.5 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {loading &&
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    <td colSpan={8} className="px-5 py-3">
-                      <Skeleton className="h-6 w-full" />
-                    </td>
-                  </tr>
-                ))}
+      {/* Grouped Daily Logs Container */}
+      <div className="space-y-6">
+        {loading &&
+          Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="p-4 space-y-3">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-16 w-full" />
+            </Card>
+          ))}
 
-              {!loading && entries.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-slate-400">
-                    No activity logs found matching your criteria.
-                  </td>
-                </tr>
-              )}
+        {!loading && entries.length === 0 && (
+          <Card className="p-12 text-center text-slate-400">
+            No activity logs found matching your criteria.
+          </Card>
+        )}
 
-              {!loading &&
-                entries.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-slate-900/40 transition">
-                    <td className="px-5 py-3.5 whitespace-nowrap text-xs font-medium text-slate-200">
-                      {new Date(entry.createdAt).toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </td>
+        {!loading &&
+          groupedEntries.map((group, groupIdx) => (
+            <Card key={groupIdx} className="p-0 overflow-hidden">
+              {/* Group Date Header */}
+              <div className="px-5 py-3 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                  <Calendar className="w-4 h-4" />
+                  <span>{group.label}</span>
+                </div>
+                <span className="text-xs text-slate-400">
+                  {group.entries.length} {group.entries.length === 1 ? "activity" : "activities"}
+                </span>
+              </div>
 
-                    <td className="px-5 py-3.5 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <Car className="w-3.5 h-3.5 text-sky-400" />
-                        <span className="capitalize">{entry.transportMode}</span>
-                        <span className="text-slate-500">({entry.transportKm}km)</span>
+              {/* Group Entries List */}
+              <div className="divide-y divide-slate-800/60">
+                {group.entries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-900/40 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300">
+                        {entry.transportMode === "bike" || entry.transportMode === "walk" ? (
+                          <span className="text-emerald-400 font-bold text-xs uppercase">{entry.transportMode}</span>
+                        ) : entry.transportMode === "car" ? (
+                          <Car className="w-4 h-4 text-sky-400" />
+                        ) : entry.transportMode === "bus" || entry.transportMode === "train" ? (
+                          <Car className="w-4 h-4 text-teal-400" />
+                        ) : (
+                          <Car className="w-4 h-4 text-purple-400" />
+                        )}
                       </div>
-                    </td>
 
-                    <td className="px-5 py-3.5 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <Zap className="w-3.5 h-3.5 text-amber-400" />
-                        <span>{entry.energyKwh} kWh</span>
-                        <span className="text-slate-500">({entry.energySource})</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-slate-100 capitalize">
+                            {entry.transportMode} ({entry.transportKm} km)
+                          </span>
+                          <Badge variant="slate" size="sm">
+                            {entry.energyKwh} kWh {entry.energySource}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-slate-500" />
+                            {formatActivityTime(entry.createdAt)}
+                          </span>
+                          <span>•</span>
+                          <span className="capitalize">{entry.dietType.replace("_", " ")}</span>
+                          <span>•</span>
+                          <span>{entry.shoppingOrders} orders</span>
+                        </div>
                       </div>
-                    </td>
+                    </div>
 
-                    <td className="px-5 py-3.5 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <Utensils className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="capitalize">{entry.dietType.replace("_", " ")}</span>
+                    <div className="flex items-center justify-between sm:justify-end gap-4">
+                      <div className="text-right">
+                        <div className="text-sm font-extrabold text-white">{entry.co2Total} kg CO₂</div>
+                        <Badge
+                          variant={
+                            entry.ecoScore >= 80 ? "emerald" : entry.ecoScore >= 60 ? "blue" : "amber"
+                          }
+                          size="sm"
+                        >
+                          {entry.ecoScore} pts
+                        </Badge>
                       </div>
-                    </td>
 
-                    <td className="px-5 py-3.5 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <ShoppingBag className="w-3.5 h-3.5 text-purple-400" />
-                        <span>{entry.shoppingOrders} orders</span>
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-3.5 whitespace-nowrap font-bold text-white">
-                      {entry.co2Total} kg
-                    </td>
-
-                    <td className="px-5 py-3.5 whitespace-nowrap">
-                      <Badge
-                        variant={
-                          entry.ecoScore >= 80 ? "emerald" : entry.ecoScore >= 60 ? "blue" : "amber"
-                        }
-                        size="sm"
-                      >
-                        {entry.ecoScore} pts
-                      </Badge>
-                    </td>
-
-                    <td className="px-5 py-3.5 whitespace-nowrap text-right">
                       <button
                         onClick={() => handleDelete(entry.id)}
                         className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
@@ -279,15 +287,15 @@ export const History: React.FC<HistoryProps> = ({ onRefreshSummary, showToast })
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-            </tbody>
-          </table>
-        </div>
+              </div>
+            </Card>
+          ))}
 
         {/* Pagination Footer */}
-        <div className="px-5 py-3.5 bg-slate-900/60 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <div className="px-5 py-3 bg-slate-900/60 border border-slate-800 rounded-2xl flex items-center justify-between text-xs text-slate-400">
           <span>
             Page {page} of {totalPages}
           </span>
@@ -308,7 +316,7 @@ export const History: React.FC<HistoryProps> = ({ onRefreshSummary, showToast })
             </button>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

@@ -11,7 +11,7 @@ export const api = axios.create({
 });
 
 export const entryService = {
-  async createEntry(data: ActivityFormInput): Promise<{ success: boolean; data: Entry }> {
+  async createEntry(data: ActivityFormInput & { clientUuid?: string }): Promise<{ success: boolean; data: Entry }> {
     const storedUser = localStorage.getItem("ecosense_user");
     let userEmail: string | undefined;
     let userId: string | undefined;
@@ -24,6 +24,11 @@ export const entryService = {
     }
 
     const response = await api.post("/entries", { ...data, userEmail, userId });
+    return response.data;
+  },
+
+  async syncBatch(entries: any[]): Promise<{ success: boolean; syncedCount: number; data: Entry[] }> {
+    const response = await api.post("/entries/sync", { entries });
     return response.data;
   },
 
@@ -111,3 +116,4 @@ export const telemetryService = {
     return response.data;
   },
 };
+

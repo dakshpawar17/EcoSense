@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
@@ -10,91 +10,138 @@ import { LoginPage } from "./pages/LoginPage";
 import { Modal } from "./components/ui/Modal";
 import { ActivityLoggerForm } from "./components/forms/ActivityLoggerForm";
 import { PrivacySettingsModal } from "./components/privacy/PrivacySettingsModal";
-import { GPSHealthTrackerModal } from "./components/sensors/GPSHealthTrackerModal";
 import { ToastNotification } from "./components/ui/ToastNotification";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { summaryService, reportService, entryService } from "./services/api";
 import { ActivityFormInput, SummaryStats, AIReport } from "./types";
-
-import { nativeHealthBridge } from "./utils/nativeHealthBridge";
+import { useNetworkStatus } from "./hooks/useNetworkStatus";
+import { useOfflineQueue } from "./hooks/useOfflineQueue";
+import { SyncState } from "./components/ui/SyncStatusBadge";
 
 function AppInner() {
   const { user, isLoading } = useAuth();
+  const { isOnline, justReconnected } = useNetworkStatus();
+  const { pendingCount, enqueue, getPending, markSynced, clearSynced } = useOfflineQueue();
+
   const [activeTab, setActiveTab] = useState<"dashboard" | "history" | "goals" | "admin">("dashboard");
   const [summary, setSummary] = useState<SummaryStats | null>(null);
   const [report, setReport] = useState<AIReport | null>(null);
   const [isReportLoading, setIsReportLoading] = useState(false);
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
-  const [isGpsHealthModalOpen, setIsGpsHealthModalOpen] = useState(false);
   const [isLogSubmitting, setIsLogSubmitting] = useState(false);
+
+  // Sync state tracking
+  const [syncState, setSyncState] = useState<SyncState>(isOnline ? "synced" : "offline");
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(new Date());
+
   const [toast, setToast] = useState<{ message: string | null; type: "success" | "error" }>({
     message: null,
     type: "success",
   });
 
-  const showToast = (message: string, type: "success" | "error" = "success") => {
+  const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast({ message: null, type: "success" }), 4000);
-  };
+  }, []);
 
-  const fetchSummary = async () => {
+  const fetchSummary = useCallback(async () => {
+    if (!isOnline) return;
     try {
       const res = await summaryService.getSummary();
       if (res.success) setSummary(res.data);
     } catch (err) {
       console.error("Failed to load summary:", err);
     }
-  };
+  }, [isOnline]);
 
-  const handleGenerateReport = async (entryId?: string) => {
+  const handleGenerateReport = useCallback(async (entryId?: string) => {
+    if (!isOnline) {
+      showToast("AI Report generation requires an active internet connection", "error");
+      return;
+    }
     setIsReportLoading(true);
     try {
       const res = await reportService.generateReport(entryId);
       if (res.success) {
         setReport(res.data);
-        showToast("AI Eco Report generated!", "success");
+        showToast("🤖 AI Eco Report refreshed!", "success");
       }
     } catch {
       showToast("Failed to generate AI report", "error");
     } finally {
       setIsReportLoading(false);
     }
-  };
+  }, [isOnline, showToast]);
 
-  useEffect(() => {
-    if (user) {
-      fetchSummary();
-      handleGenerateReport();
+  // Sync Worker: Automatically syncs queued offline logs when connected
+  const runAutoSync = useCallback(async () => {
+    const pending = getPending();
+    if (pending.length === 0) {
+      setSyncState("synced");
+      return;
     }
-  }, [user]);
 
-  // Autonomous Background Telemetry Sync Poller
-  useEffect(() => {
-    if (!user) return;
+    setSyncState("syncing");
+    showToast(`🌐 Internet connected. Syncing ${pending.length} activities…`, "success");
 
-    const runAutoSync = async () => {
-      if (!nativeHealthBridge.isAutoTrackingActive()) return;
-      const res = await nativeHealthBridge.collectAndSyncTelemetrySilently();
-      if (res.success && res.message) {
+    try {
+      const res = await entryService.syncBatch(
+        pending.map((p) => ({ ...p.data, clientUuid: p.uuid, queuedAt: p.queuedAt }))
+      );
+
+      if (res.success) {
+        pending.forEach((p) => markSynced(p.uuid));
+        clearSynced();
+        const now = new Date();
+        setLastSyncedAt(now);
+        setSyncState("synced");
+
+        showToast(`✅ Successfully synchronized ${res.syncedCount} activities.`, "success");
+
+        // Automatically update dashboard and refresh AI insights
         await fetchSummary();
+        showToast("📊 Dashboard & stats updated.", "success");
       }
-    };
+    } catch (err) {
+      console.error("Sync error:", err);
+      setSyncState("error");
+      showToast("⚠️ Sync encountered an error. Will retry automatically.", "error");
+    }
+  }, [getPending, markSynced, clearSynced, fetchSummary, showToast]);
 
-    runAutoSync();
-    const intervalId = setInterval(runAutoSync, 30000);
-    return () => clearInterval(intervalId);
-  }, [user]);
+  // React to network state changes
+  useEffect(() => {
+    if (!isOnline) {
+      setSyncState("offline");
+      showToast("🔴 Working Offline. Activities will be queued locally.", "error");
+    } else {
+      runAutoSync();
+    }
+  }, [isOnline]);
+
+  useEffect(() => {
+    if (user && isOnline) fetchSummary();
+  }, [user, isOnline]);
 
   const handleCreateEntry = async (data: ActivityFormInput) => {
     setIsLogSubmitting(true);
     try {
-      const res = await entryService.createEntry(data);
-      if (res.success) {
-        showToast("Activity logged and calculated!", "success");
+      if (!isOnline) {
+        const queued = enqueue(data);
+        showToast(`🔴 Saved locally to offline queue (${queued.uuid.slice(0, 8)})`, "success");
         setIsLogModalOpen(false);
-        await fetchSummary();
-        handleGenerateReport(res.data.id);
+        setSyncState("offline");
+      } else {
+        const res = await entryService.createEntry({ ...data, clientUuid: crypto.randomUUID() });
+        if (res.success) {
+          showToast("Activity logged and calculated!", "success");
+          setIsLogModalOpen(false);
+          setLastSyncedAt(new Date());
+          setSyncState("synced");
+          await fetchSummary();
+          handleGenerateReport(res.data.id);
+        }
       }
     } catch (err: any) {
       showToast(err.response?.data?.message || "Failed to log activity", "error");
@@ -103,7 +150,6 @@ function AppInner() {
     }
   };
 
-  // Loading splash screen
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -119,7 +165,6 @@ function AppInner() {
     );
   }
 
-  // If not logged in → show login page
   if (!user) {
     return <LoginPage />;
   }
@@ -132,7 +177,9 @@ function AppInner() {
         onOpenLogModal={() => setIsLogModalOpen(true)}
         onOpenReportModal={() => handleGenerateReport()}
         onOpenPrivacyModal={() => setIsPrivacyModalOpen(true)}
-        onOpenGpsHealthModal={() => setIsGpsHealthModalOpen(true)}
+        syncState={syncState}
+        lastSyncedAt={lastSyncedAt}
+        pendingCount={pendingCount}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -158,7 +205,7 @@ function AppInner() {
               <Goals />
             </motion.div>
           )}
-          {activeTab === "admin" && user?.role === "admin" && (
+          {activeTab === "admin" && (
             <motion.div key="admin" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
               <Admin />
             </motion.div>
@@ -171,12 +218,6 @@ function AppInner() {
       <Modal isOpen={isLogModalOpen} onClose={() => setIsLogModalOpen(false)} title="Log Today's Lifestyle Activity" maxWidth="xl">
         <ActivityLoggerForm onSubmit={handleCreateEntry} isLoading={isLogSubmitting} />
       </Modal>
-
-      <GPSHealthTrackerModal
-        isOpen={isGpsHealthModalOpen}
-        onClose={() => setIsGpsHealthModalOpen(false)}
-        onSuccess={fetchSummary}
-      />
 
       <PrivacySettingsModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} showToast={showToast} />
 

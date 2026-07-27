@@ -58,3 +58,26 @@ export const loginOrRegisterUser = async (req: Request, res: Response) => {
     });
   }
 };
+
+// GET /api/auth/me - Retrieve current session user context
+export const getCurrentUser = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user || {
+      id: "demo-user-001",
+      email: "demo@ecosense.ai",
+      name: "Demo Explorer",
+      role: "user",
+    };
+
+    return res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch user session",
+    });
+  }
+};
+

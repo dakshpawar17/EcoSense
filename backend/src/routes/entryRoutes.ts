@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { createEntry, getEntries, getEntryById, deleteEntry } from "../controllers/entryController";
+import { createEntry, syncEntries, getEntries, getEntryById, deleteEntry } from "../controllers/entryController";
 
 const router = Router();
 
 router.post("/", createEntry);
+router.post("/sync", syncEntries);
 router.get("/", getEntries);
 router.get("/:id", getEntryById);
 router.delete("/:id", deleteEntry);

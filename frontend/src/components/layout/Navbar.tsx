@@ -2,6 +2,7 @@ import React from "react";
 import { Leaf, LayoutDashboard, History as HistoryIcon, Award, ShieldAlert, Lock, PlusCircle, Sparkles, ChevronDown, LogOut, User } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useAuth } from "../../context/AuthContext";
+import { SyncStatusBadge, SyncState } from "../ui/SyncStatusBadge";
 
 interface NavbarProps {
   activeTab: "dashboard" | "history" | "goals" | "admin";
@@ -9,7 +10,9 @@ interface NavbarProps {
   onOpenLogModal: () => void;
   onOpenReportModal: () => void;
   onOpenPrivacyModal: () => void;
-  onOpenGpsHealthModal?: () => void;
+  syncState?: SyncState;
+  lastSyncedAt?: Date | null;
+  pendingCount?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,7 +21,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenLogModal,
   onOpenReportModal,
   onOpenPrivacyModal,
-  onOpenGpsHealthModal,
+  syncState = "synced",
+  lastSyncedAt = null,
+  pendingCount = 0,
 }) => {
   const { user, signOut } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
@@ -50,7 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
             { id: "history", label: "History", icon: HistoryIcon },
             { id: "goals", label: "Goals", icon: Award },
-            ...(user?.role === "admin" ? [{ id: "admin", label: "Admin Panel", icon: ShieldAlert }] : []),
+            { id: "admin", label: "Admin", icon: ShieldAlert },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -69,16 +74,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
-          {onOpenGpsHealthModal && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onOpenGpsHealthModal}
-              className="hidden md:inline-flex border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
-            >
-              📱 GPS & Health Sync
-            </Button>
-          )}
+          {/* Real-time Sync Status Indicator */}
+          <SyncStatusBadge
+            syncState={syncState}
+            lastSyncedAt={lastSyncedAt}
+            pendingCount={pendingCount}
+          />
 
           <button
             onClick={onOpenPrivacyModal}
